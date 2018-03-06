@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Built-By: Filelug Team
+Created-By: WU-BEN CO., LTD.
+Package: com.filelug.desktop
+Main-Class: com.filelug.desktop.Application

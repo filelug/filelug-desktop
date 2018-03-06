@@ -1,0 +1,19 @@
+1. Setup the following system properties before startup desktop:
+	(1) use.https
+		--> If the desktop uses https to communicate with the repository.
+		Always set to false for testing environment.
+        For example,
+		-Duse.https=false
+
+2. 測試環境，與正式環境不同說明如下：
+	(1) AA server網址永遠是127.0.0.1，而不是正式環境下的「repo.filelug.com」。
+	    若要更改AA Server網址，則修改 AbstractService.java 的下列程式碼：
+
+	    protected static final String CREPO_ADDRESS_FOR_TESTING = "127.0.0.1";
+
+	(2) 資料儲存路徑為$user.home/.Filelug-TESTING/，而不是正式環境下的$user.home/.Filelug。
+
+3. 利用下列指令可快速啟動測試環境：
+	(1) startup-testing-en.sh/.bat      --> 英文語系
+	(2) startup-testing-zh_TW.sh/.bat   --> 繁體中文語系
+	(2) startup-testing-zh_CN.sh/.bat   --> 簡體中文語系

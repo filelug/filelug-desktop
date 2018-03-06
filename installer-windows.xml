@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="installer-windows" basedir=".">
+
+    <!--每次執行 build 之前請先修改或確認 build.properties 的內容-->
+    <property file="build.properties"/>
+
+    <!--
+        建立 Filelug for Windows 版四種安裝程式
+    -->
+    <target name="installer-windowsAll" description="建立 Filelug for Windows 版四種安裝程式">
+        <echo>################################################################</echo>
+        <echo>## 建立 Filelug for Windows 版四種安裝程式 ##</echo>
+        <echo>################################################################</echo>
+        <antcall target="installer-windows-x86"/>
+        <antcall target="installer-windows-x64"/>
+    </target>
+
+    <!--
+        建立 Filelug for Windows x86 版 安裝程式及無安裝程式壓縮包
+    -->
+    <target name="installer-windows-x86" description="建立 Filelug for Windows x86 版 安裝程式及無安裝程式壓縮包"
+            depends="clean-windows-x86-installer">
+
+        <echo>##########################################################################</echo>
+        <echo>## 建立 Filelug for Windows x86 版 安裝程式及無安裝程式壓縮包 ##</echo>
+        <echo>##########################################################################</echo>
+
+        <untar src="${jre.win.x86.tar}" dest="${target.jre.win.x86.dir}" compression="gzip"/>
+
+        <!-- Start copy files for openjdk -->
+
+        <!-- copy font to lib/fonts/fallback -->
+        <mkdir dir="${bundled.jre.home.win.x86}/lib/fonts/fallback"/>
+        <copy file="${font.source.path}" todir="${bundled.jre.home.win.x86}/lib/fonts/fallback" overwrite="no"/>
+
+        <!-- End copy files for openjdk -->
+
+        <mkdir dir="${dist-tmp.windows.x86.dir}"/>
+        <copy todir="${dist-tmp.windows.x86.dir}/jre" overwrite="no">
+            <fileset dir="${bundled.jre.home.win.x86}"/>
+        </copy>
+        <copy todir="${dist-tmp.windows.x86.dir}/flib" overwrite="no">
+            <fileset dir="${target.flib.dir}">
+                <exclude name="**/maven-*.jar"/>
+            </fileset>
+        </copy>
+
+        <!-- copy VERSION file to ${target.dir} -->
+        <copy file="${install.dir}/${version.file}" todir="${target.dir}" overwrite="yes"/>
+        <replace file="${target.dir}/${version.file}" propertyfile="build.properties">
+            <replacefilter token="{{app.version}}" property="app.version"/>
+        </replace>
+
+        <!-- copy apprun.bat to ${target.dir} -->
+        <copy file="${install.dir}/apprun.bat" todir="${target.dir}" overwrite="yes"/>
+
+        <delete dir="${target.bat2exe.dir}/x86"/>
+
+        <!-- stop using bat2exe to prevent malware warning for Windows Defender -->
+        <!--<mkdir dir="${target.bat2exe.dir}/x86"/>-->
+        <!--<exec executable="${bat2exe.converter}" >-->
+        <!--<arg value="-bat"/>-->
+        <!--<arg value="${target.dir}/apprun.bat"/>-->
+        <!--&lt;!&ndash;<arg value="${install.dir}/apprun.bat"/>&ndash;&gt;-->
+        <!--<arg value="-save"/>-->
+        <!--<arg value="${target.bat2exe.dir}/x86/apprun.exe"/>-->
+        <!--<arg value="-icon"/>-->
+        <!--<arg value="${install.dir}/Filelug_Desktop.ico"/>-->
+        <!--<arg value="-invisible"/>-->
+        <!--<arg value="-overwrite"/>-->
+        <!--<arg value="-fileversion"/>-->
+        <!--<arg value="${app.version2}"/>-->
+        <!--<arg value="-productversion"/>-->
+        <!--<arg value="${app.version2}"/>-->
+        <!--<arg value="-company"/>-->
+        <!--<arg value="${app.builder}"/>-->
+        <!--<arg value="-productname"/>-->
+        <!--<arg value="${app.name}"/>-->
+        <!--<arg value="-internalname"/>-->
+        <!--<arg value="${app.name}"/>-->
+        <!--<arg value="-description"/>-->
+        <!--<arg value="${app.starter.x86.description}"/>-->
+        <!--<arg value="-copyright"/>-->
+        <!--<arg value="${app.copyright}"/>-->
+        <!--<arg value="-upx"/>-->
+        <!--</exec>-->
+
+        <delete file="./${install.innosetup.script.desktop}" quiet="true"/>
+        <copy file="${install.dir}/${install.innosetup.script.desktop}" todir="."/>
+        <replace file="./${install.innosetup.script.desktop}">
+            <replacefilter token="##PRODUCT_NAME##" value="${app.name}"/>
+            <replacefilter token="##VERSION_NO##" value="${app.version}"/>
+            <replacefilter token="##PRODUCT_BUILDER##" value="${app.builder}"/>
+            <replacefilter token="##PRODUCT_COPYRIGHT##" value="${app.copyright.innosetup}"/>
+            <replacefilter token="##INSTALLER_DESCRIPTION##" value="${app.installer.x86.description}"/>
+            <replacefilter token="##URL##" value="${app.url}"/>
+            <replacefilter token="##JRE_SOURCE##" value="${bundled.jre.home.win.x86}"/>
+            <replacefilter token="##ARCH_ALLOWED##" value="x86"/>
+            <replacefilter token="##ARCH_ALLOWED_IN_64##" value=""/>
+        </replace>
+        <exec executable="${install.innosetup.compiler}">
+            <arg value="./${install.innosetup.script.desktop}"/>
+        </exec>
+
+        <!-- code sign for file setup.exe -->
+        <exec executable="${signtool.dir}/signtool">
+            <arg value="sign"/>
+            <arg value="/tr"/>
+            <arg value="http://timestamp.digicert.com"/>
+            <arg value="/td"/>
+            <arg value="sha256"/>
+            <arg value="/fd"/>
+            <arg value="sha256"/>
+            <arg value="/a"/>
+            <arg value="./Output/setup.exe"/>
+        </exec>
+
+        <mkdir dir="${dist.dir}"/>
+        <zip destfile="${dist.dir}/Filelug-${app.version}-windows-x86.setup.exe.zip">
+            <fileset dir="./Output">
+                <include name="setup.exe"/>
+            </fileset>
+        </zip>
+        <delete dir="./Output"/>
+
+        <zip destfile="${dist.dir}/Filelug-${app.version}-windows-x86-self-extract.zip">
+            <!--<fileset dir="${target.bat2exe.dir}/x86">-->
+            <!--<include name="apprun.exe"/>-->
+            <!--</fileset>-->
+            <fileset dir="${dist-tmp.windows.x86.dir}"/>
+            <fileset dir="${target.dir}">
+                <include name="${version.file}"/>
+                <include name="apprun.bat"/>
+            </fileset>
+        </zip>
+
+    </target>
+
+    <!--
+        建立 Filelug for Windows x64 版 安裝程式及無安裝程式壓縮包
+    -->
+    <target name="installer-windows-x64" description="建立 Filelug for Windows x64 版 安裝程式及無安裝程式壓縮包"
+            depends="clean-windows-x64-installer">
+
+        <echo>##########################################################################</echo>
+        <echo>## 建立 Filelug for Windows x64 版 安裝程式及無安裝程式壓縮包 ##</echo>
+        <echo>##########################################################################</echo>
+
+        <untar src="${jre.win.x64.tar}" dest="${target.jre.win.x64.dir}" compression="gzip"/>
+
+        <!-- Start copy files for openjdk -->
+
+        <!-- copy font to lib/fonts/fallback -->
+        <mkdir dir="${bundled.jre.home.win.x64}/lib/fonts/fallback"/>
+        <copy file="${font.source.path}" todir="${bundled.jre.home.win.x64}/lib/fonts/fallback" overwrite="no"/>
+
+        <!-- End copy files for openjdk -->
+
+        <mkdir dir="${dist-tmp.windows.x64.dir}"/>
+        <copy todir="${dist-tmp.windows.x64.dir}/jre" overwrite="no">
+            <fileset dir="${bundled.jre.home.win.x64}"/>
+        </copy>
+        <copy todir="${dist-tmp.windows.x64.dir}/flib" overwrite="no">
+            <fileset dir="${target.flib.dir}">
+                <exclude name="**/maven-*.jar"/>
+            </fileset>
+            <!--<fileset dir="${target.flib.dir}" />-->
+        </copy>
+
+        <!-- copy VERSION file to ${target.dir} -->
+        <copy file="${install.dir}/${version.file}" todir="${target.dir}" overwrite="yes"/>
+        <replace file="${target.dir}/${version.file}" propertyfile="build.properties">
+            <replacefilter token="{{app.version}}" property="app.version"/>
+        </replace>
+
+        <!-- copy apprun.bat to ${target.dir} -->
+        <copy file="${install.dir}/apprun.bat" todir="${target.dir}" overwrite="yes"/>
+
+        <delete dir="${target.bat2exe.dir}/x64"/>
+
+        <!-- stop using bat2exe to prevent malware warning for Windows Defender. Use apprun.bat instead -->
+        <!--<mkdir dir="${target.bat2exe.dir}/x64"/>-->
+        <!--<exec executable="${bat2exe.converter.x64}" >-->
+        <!--<arg value="-bat"/>-->
+        <!--<arg value="${target.dir}/apprun.bat"/>-->
+        <!--&lt;!&ndash;<arg value="${install.dir}/apprun.bat"/>&ndash;&gt;-->
+        <!--<arg value="-save"/>-->
+        <!--<arg value="${target.bat2exe.dir}/x64/apprun.exe"/>-->
+        <!--<arg value="-icon"/>-->
+        <!--<arg value="${install.dir}/Filelug_Desktop.ico"/>-->
+        <!--<arg value="-invisible"/>-->
+        <!--<arg value="-x64"/>-->
+        <!--<arg value="-overwrite"/>-->
+        <!--<arg value="-fileversion"/>-->
+        <!--<arg value="${app.version2}"/>-->
+        <!--<arg value="-productversion"/>-->
+        <!--<arg value="${app.version2}"/>-->
+        <!--<arg value="-company"/>-->
+        <!--<arg value="${app.builder}"/>-->
+        <!--<arg value="-productname"/>-->
+        <!--<arg value="${app.name}"/>-->
+        <!--<arg value="-internalname"/>-->
+        <!--<arg value="${app.name}"/>-->
+        <!--<arg value="-description"/>-->
+        <!--<arg value="${app.starter.x64.description}"/>-->
+        <!--<arg value="-copyright"/>-->
+        <!--<arg value="${app.copyright}"/>-->
+        <!--<arg value="-upx"/>-->
+        <!--</exec>-->
+
+        <delete file="./${install.innosetup.script.desktop}" quiet="true"/>
+        <copy file="${install.dir}/${install.innosetup.script.desktop}" todir="."/>
+        <replace file="./${install.innosetup.script.desktop}">
+            <replacefilter token="##PRODUCT_NAME##" value="${app.name}"/>
+            <replacefilter token="##VERSION_NO##" value="${app.version}"/>
+            <replacefilter token="##PRODUCT_BUILDER##" value="${app.builder}"/>
+            <replacefilter token="##PRODUCT_COPYRIGHT##" value="${app.copyright.innosetup}"/>
+            <replacefilter token="##INSTALLER_DESCRIPTION##" value="${app.installer.x64.description}"/>
+            <replacefilter token="##URL##" value="${app.url}"/>
+            <replacefilter token="##JRE_SOURCE##" value="${bundled.jre.home.win.x64}"/>
+            <replacefilter token="##ARCH_ALLOWED##" value="x64"/>
+            <replacefilter token="##ARCH_ALLOWED_IN_64##" value="x64"/>
+        </replace>
+        <exec executable="${install.innosetup.compiler}">
+            <arg value="./${install.innosetup.script.desktop}"/>
+        </exec>
+
+        <!-- code sign for file setup.exe -->
+        <!--
+            To Sign Code with a SHA256 Certificate/Digest Algorithm/Timestamp
+            > cd C:\Program Files (x86)\Windows Kits\10\bin\10.0.15063.0\x64
+            > signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a "C:\Users\fdemo\Downloads\setup.exe"
+        -->
+        <exec executable="${signtool.dir}/signtool">
+            <arg value="sign"/>
+            <arg value="/tr"/>
+            <arg value="http://timestamp.digicert.com"/>
+            <arg value="/td"/>
+            <arg value="sha256"/>
+            <arg value="/fd"/>
+            <arg value="sha256"/>
+            <arg value="/a"/>
+            <arg value="./Output/setup.exe"/>
+        </exec>
+
+        <mkdir dir="${dist.dir}"/>
+        <zip destfile="${dist.dir}/Filelug-${app.version}-windows-x64.setup.exe.zip">
+            <fileset dir="./Output">
+                <include name="setup.exe"/>
+            </fileset>
+        </zip>
+        <delete dir="./Output"/>
+
+        <zip destfile="${dist.dir}/Filelug-${app.version}-windows-x64-self-extract.zip">
+            <!--<fileset dir="${target.bat2exe.dir}/x64">-->
+            <!--<include name="apprun.exe"/>-->
+            <!--</fileset>-->
+            <fileset dir="${dist-tmp.windows.x64.dir}"/>
+            <fileset dir="${target.dir}">
+                <include name="${version.file}"/>
+                <include name="apprun.bat"/>
+            </fileset>
+        </zip>
+
+    </target>
+
+    <!--
+        清除 Windows x86 版 安裝程式及目錄
+    -->
+    <target name="clean-windows-x86-installer" description="清除 Windows x86 版 安裝程式及目錄">
+        <echo>################################################################</echo>
+        <echo>## 清除 Windows x86 版 安裝程式及目錄 ##</echo>
+        <echo>################################################################</echo>
+        <delete dir="${target.jre.win.x86.dir}"/>
+        <delete dir="${dist-tmp.windows.x86.dir}"/>
+        <delete file="${dist.dir}/Filelug-${app.version}-windows-x86.setup.exe.zip"/>
+        <delete file="${dist.dir}/Filelug-${app.version}-windows-x86-self-extract.zip"/>
+    </target>
+
+    <!--
+        清除 Windows x64 版 安裝程式及目錄
+    -->
+    <target name="clean-windows-x64-installer" description="清除 Windows x64 版 安裝程式及目錄">
+        <echo>################################################################</echo>
+        <echo>## 清除 Windows x64 版 安裝程式及目錄 ##</echo>
+        <echo>################################################################</echo>
+        <delete dir="${target.jre.win.x64.dir}"/>
+        <delete dir="${dist-tmp.windows.x64.dir}"/>
+        <delete file="${dist.dir}/Filelug-${app.version}-windows-x64.setup.exe.zip"/>
+        <delete file="${dist.dir}/Filelug-${app.version}-windows-x64-self-extract.zip"/>
+    </target>
+
+</project>

@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="installer-macAndLinux" basedir=".">
+
+    <!--每次執行 build 之前請先修改或確認 build.properties 的內容-->
+    <property file="build.properties"/>
+
+    <!--
+        建立 Filelug for Mac and Linux 版三種安裝程式
+    -->
+    <target name="installer-macAndLinux" description="建立 Filelug for Mac and Linux 版三種安裝程式">
+        <echo>################################################################</echo>
+        <echo>## 建立 Filelug for Mac and Linux 版三種安裝程式                   </echo>
+        <echo>################################################################</echo>
+        <antcall target="installer-mac-x64"/>
+        <antcall target="installer-linuxAll"/>
+    </target>
+
+    <!--
+        建立 Filelug for Mac 版 APP 安裝程式
+    -->
+    <target name="installer-mac-x64" description="建立 Filelug for Mac 版 APP 安裝程式" depends="clean-mac-installer">
+
+        <echo>################################################################</echo>
+        <echo>## 建立 Filelug for Mac 版 APP 安裝程式                           </echo>
+        <echo>################################################################</echo>
+
+        <untar src="${jre.mac.x64.tar}" dest="${target.jre.mac.x64.dir}" compression="gzip" />
+
+        <taskdef name="bundleapp"
+                 classname="com.oracle.appbundler.AppBundlerTask"
+                 classpath="${install.appbundler.dir}/appbundler-1.0.jar"/>
+
+        <mkdir dir="${dist-tmp.mac.x64.dir}"/>
+
+        <!-- copy VERSION file to ${dist-tmp.mac.x64.dir} -->
+        <copy file="${install.dir}/${version.file}" todir="${dist-tmp.mac.x64.dir}" overwrite="yes"/>
+        <replace file="${dist-tmp.mac.x64.dir}/${version.file}" propertyfile="build.properties">
+            <replacefilter token="{{app.version}}" property="app.version"/>
+        </replace>
+
+        <bundleapp outputdirectory="${dist-tmp.mac.x64.dir}"
+                   name="${app.name}"
+                   displayname="${app.name}"
+                   identifier="${bundle.id}"
+                   mainclassname="${app.starter.class.for.mac}"
+                   shortversion="${app.version}"
+                   applicationCategory="public.app-category.productivity"
+                   copyright="${app.copyright}"
+                   icon="${mac.icon.path}">
+            <runtime dir="${bundled.jre.home.mac.x64}"/>
+            <classpath dir="${target.flib.dir}">
+                <include name="**/*.jar"/>
+                <exclude name="**/maven-*.jar"/>
+            </classpath>
+
+            <!-- START properties set if value of 'mainclassname' is the com.filelug.desktop.Application -->
+            <option value="-Xdock:icon=$APP_ROOT/Contents/Resources/${mac.icon.name}"/>
+            <option value="-Xdock:name=${app.name}"/>
+
+            <!--
+                Set this as earlier as possible before other settings to make sure it works!
+
+                UIElement "Suppresses the normal application Dock icon and menu bar from appearing.
+                Only appropriate for background applications which show a tray icon or other alternate user interface for accessing the apps windows.
+                Unlike java.awt.headless=true, this does not suppress windows and dialogs from actually appearing on screen. The default value is false."
+            -->
+            <!--<option value="-Dapple.awt.UIElement=false"/>-->
+
+            <!--<option value="-Dawt.useSystemAAFontSettings=lcd"/>-->
+
+            <option value="-Dbundle.directory=$APP_ROOT" />
+            <option value="-Dbundle.jre=$APP_ROOT/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre" />
+            <option value="-Dbundle.lib=$APP_ROOT/Contents/Java" />
+
+            <option value="-Dapple.laf.useScreenMenuBar=true"/>
+            <option value="-Dcom.apple.macos.useScreenMenuBar=true"/>
+
+            <option value="-Dbundle.id=${bundle.id}"/>
+            <option value="-Dbundle.name=${app.name}"/>
+
+            <option value="-Dcom.apple.macos.use-file-dialog-packages=true"/>
+            <option value="-Dapple.awt.fileDialogForDirectories"/>
+
+            <option value="-Dapple.awt.application.name=${app.name}"/>
+            <option value="-Dcom.apple.smallTabs=true"/>
+            <option value="-Dcom.apple.showGrowBox=false"/>
+
+            <!-- Set the parent path of resources -->
+            <option value="-Dbundle.resources=$APP_ROOT/Contents/Resources"/>
+            <!-- END properties set if value of 'mainclassname' is the com.filelug.desktop.Application -->
+
+            <!--<option value="-Xms256M"/>-->
+        </bundleapp>
+
+        <copy todir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre" overwrite="no">
+            <fileset dir="${bundled.jre.home.mac.x64}">
+                <exclude name="**/.DS_Store"/>
+            </fileset>
+        </copy>
+
+        <!-- Start copy files for openjdk -->
+
+        <!-- copy font to lib/fonts/fallback -->
+        <mkdir dir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/fonts/fallback"/>
+        <copy file="${font.source.path}" todir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/fonts/fallback" overwrite="no"/>
+
+        <!-- overwrite cacerts with the one from ojdk -->
+        <!--<copy file="${cacerts.source.path}" tofile="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/security/cacerts" overwrite="yes"/>-->
+
+        <!-- copy font and fontconfig.properties -->
+        <!--<mkdir dir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/fonts"/>-->
+        <!--<copy file="${font.source.path}" todir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/fonts" overwrite="no"/>-->
+        <!--<copy file="${mac.fontconfig.properties.source.path}" tofile="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/fontconfig.properties" overwrite="yes"/>-->
+
+        <!-- End copy files for openjdk -->
+
+        <!-- symlink java with Filelug, so the process name will be Filelug, instead of java, -->
+        <!-- and it must do before chmod -->
+        <!--<symlink link="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/bin/${app.name}"-->
+                 <!--resource="./java"-->
+                 <!--overwrite="true"-->
+                 <!--failonerror="true" />-->
+
+        <chmod file="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/bin/*" perm="755"/>
+        <chmod dir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib" perm="755" includes="**/*.dylib"/>
+        <chmod file="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/jspawnhelper" perm="755"/>
+        <chmod file="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/MacOS/*" perm="755"/>
+
+        <!-- copy VERSION to app -->
+        <copy file="${dist-tmp.mac.x64.dir}/${version.file}" todir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents" overwrite="no"/>
+
+        <!-- copy bundle file to app, for java-objc-bridge -->
+        <copy todir="${dist-tmp.mac.x64.dir}/${app.name}.app/Contents/Resources/${fileinfo.bundle.name}" overwrite="yes">
+            <fileset dir="${fileinfo.bundle.path}"/>
+        </copy>
+
+
+        <!--
+
+         Code sign using certificate:
+         Name:WU-BEN CO., LTD.
+         Type:Mac App Distribution
+         Expires:Jan 8, 2022
+
+         -->
+
+        <!-- code sign application -->
+
+        <exec executable="codesign">
+            <arg value="--verify"/>
+            <arg value="--deep"/>
+            <arg value="--strict"/>
+            <arg value="--verbose=2"/>
+            <arg value="-f"/>
+            <arg value="-s"/>
+            <arg value="Developer ID Application: WU-BEN CO., LTD. (A7LGDA7RDH)"/>
+            <arg value="${dist-tmp.mac.x64.dir}/${app.name}.app"/>
+        </exec>
+
+        <mkdir dir="${dist.dir}"/>
+
+        <!-- zip app -->
+        <zip destfile="${dist.dir}/Filelug-${app.version}-mac-x64.app.zip">
+            <zipfileset dir="${dist-tmp.mac.x64.dir}" filemode="755">
+                <include name="${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/bin/*"/>
+                <include name="${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/**/*.dylib"/>
+                <include name="${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/jspawnhelper"/>
+                <include name="${app.name}.app/Contents/MacOS/*"/>
+            </zipfileset>
+            <zipfileset dir="${dist-tmp.mac.x64.dir}">
+                <include name="**"/>
+                <!-- the file already copied into the .app -->
+                <exclude name="${version.file}"/>
+                <exclude name="${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/bin/*"/>
+                <exclude name="${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/**/*.dylib"/>
+                <exclude name="${app.name}.app/Contents/PlugIns/${jre.unzip.dir}.jre/Contents/Home/jre/lib/jspawnhelper"/>
+                <exclude name="${app.name}.app/Contents/MacOS/*"/>
+            </zipfileset>
+        </zip>
+
+        <!-- dmg app by run hdiutil -->
+
+        <!-- Create a temporary Disk Image -->
+        <exec executable="/usr/bin/hdiutil" os="Mac OS X" failonerror="true">
+            <arg value="create"/>
+            <arg value="-fs"/>
+            <arg value="HFS+"/>
+            <arg value="-volname"/>
+            <arg value="${app.name} ${app.version}"/>
+            <arg value="-srcfolder"/>
+            <arg value="${dist-tmp.mac.x64.dir}/${app.name}.app"/>
+            <arg value="${dist-tmp.mac.x64.dir}/${mac.dmg.tmp.name}"/>
+        </exec>
+
+        <!-- Convert dmg to read only -->
+        <exec executable="/usr/bin/hdiutil" os="Mac OS X" failonerror="true">
+            <arg value="convert"/>
+            <arg value="${dist-tmp.mac.x64.dir}/${mac.dmg.tmp.name}"/>
+            <arg value="-format"/>
+            <arg value="UDZO"/>
+            <arg value="-o"/>
+            <arg value="${dist.dir}/${mac.dmg.output.name}"/>
+        </exec>
+    </target>
+
+    <!--
+        建立 Filelug for Linux 版兩種安裝程式
+    -->
+    <target name="installer-linuxAll" description="建立 Filelug for Linux 版兩種安裝程式">
+        <echo>################################################################</echo>
+        <echo>## 建立 Filelug for Linux 版兩種安裝程式                           </echo>
+        <echo>################################################################</echo>
+
+        <antcall target="installer-linux-x64"/>
+    </target>
+
+    <!--
+        建立 Filelug for Linux x64 版 無安裝程式壓縮包
+    -->
+    <target name="installer-linux-x64" description="建立 Filelug for Linux x64 版 無安裝程式壓縮包" depends="clean-linux-x64-installer">
+
+        <echo>################################################################</echo>
+        <echo>## 建立 Filelug for Linux x64 版 無安裝程式壓縮包                  </echo>
+        <echo>################################################################</echo>
+
+        <untar src="${jre.linux.x64.tar}" dest="${target.jre.linux.x64.dir}" compression="gzip" />
+
+        <mkdir dir="${dist-tmp.linux.x64.dir}"/>
+        <copy todir="${dist-tmp.linux.x64.dir}/jre" overwrite="no">
+            <fileset dir="${bundled.jre.home.linux.x64}" />
+        </copy>
+        <copy todir="${dist-tmp.linux.x64.dir}/flib" overwrite="no">
+            <fileset dir="${target.flib.dir}">
+                <exclude name="**/maven-*.jar"/>
+            </fileset>
+            <!--<fileset dir="${target.flib.dir}" />-->
+        </copy>
+        <copy file="${install.dir}/apprun.sh" todir="${dist-tmp.linux.x64.dir}" overwrite="no"/>
+
+        <!-- Start copy files for openjdk -->
+
+        <!-- copy font to lib/fonts/fallback -->
+        <mkdir dir="${dist-tmp.linux.x64.dir}/jre/lib/fonts/fallback"/>
+        <copy file="${font.source.path}" todir="${dist-tmp.linux.x64.dir}/jre/lib/fonts/fallback" overwrite="no"/>
+
+        <!-- overwrite cacerts with the one from ojdk -->
+        <!--<copy file="${cacerts.source.path}" tofile="${dist-tmp.linux.x64.dir}/jre/lib/security/cacerts" overwrite="yes"/>-->
+
+        <!-- copy font file, fontconfig.properites  -->
+        <!--<mkdir dir="${dist-tmp.linux.x64.dir}/jre/lib/fonts"/>-->
+        <!--<copy file="${font.source.path}" todir="${dist-tmp.linux.x64.dir}/jre/lib/fonts" overwrite="no"/>-->
+        <!--<copy file="${linux.fontconfig.properties.source.path}" tofile="${dist-tmp.linux.x64.dir}/jre/lib/fontconfig.properties" overwrite="yes"/>-->
+
+        <!-- End copy files for openjdk -->
+
+        <chmod file="${dist-tmp.linux.x64.dir}/apprun.sh" perm="755"/>
+        <chmod file="${dist-tmp.linux.x64.dir}/jre/bin/*" perm="755"/>
+        <chmod file="${dist-tmp.linux.x64.dir}/jre/lib/classlist" perm="755"/>
+        <chmod file="${dist-tmp.linux.x64.dir}/jre/lib/jexec" perm="755"/>
+        <chmod file="${dist-tmp.linux.x64.dir}/jre/lib/jvm.hprof.txt" perm="755"/>
+        <chmod file="${dist-tmp.linux.x64.dir}/jre/lib/meta-index" perm="755"/>
+        <chmod dir="${dist-tmp.linux.x64.dir}/jre/lib" perm="755" includes="**/*.jar"/>
+        <chmod dir="${dist-tmp.linux.x64.dir}/jre/lib" perm="755" includes="**/*.properties"/>
+        <chmod dir="${dist-tmp.linux.x64.dir}/jre/lib" perm="755" includes="**/*.properties.*"/>
+        <chmod dir="${dist-tmp.linux.x64.dir}/jre/lib" perm="755" includes="**/*.data"/>
+        <chmod dir="${dist-tmp.linux.x64.dir}/jre/lib" perm="755" includes="**/*.bfc"/>
+        <chmod dir="${dist-tmp.linux.x64.dir}/jre/lib" perm="755" includes="**/*.so"/>
+        <chmod dir="${dist-tmp.linux.x64.dir}/jre/lib" perm="755" includes="**/*.cfg"/>
+
+        <!-- copy VERSION file to ${dist-tmp.linux.x64.dir} -->
+        <copy file="${install.dir}/${version.file}" todir="${dist-tmp.linux.x64.dir}" overwrite="yes"/>
+        <replace file="${dist-tmp.linux.x64.dir}/${version.file}" propertyfile="build.properties">
+            <replacefilter token="{{app.version}}" property="app.version"/>
+        </replace>
+
+        <!-- replace {app.version} in apprun.sh to the value 'app.version' in build.property -->
+        <!--<replace file="${dist-tmp.linux.x64.dir}/apprun.sh" propertyfile="build.properties">-->
+        <!--<replacefilter token="{{app.version}}" property="app.version"/>-->
+        <!--</replace>-->
+
+        <mkdir dir="${dist.dir}"/>
+        <zip destfile="${dist.dir}/Filelug-${app.version}-linux-x64-self-extract.zip">
+            <zipfileset dir="${dist-tmp.linux.x64.dir}" filemode="755">
+                <include name="apprun.sh"/>
+                <include name="jre/bin/*"/>
+                <include name="jre/lib/classlist"/>
+                <include name="jre/lib/jexec"/>
+                <include name="jre/lib/jvm.hprof.txt"/>
+                <include name="jre/lib/meta-index"/>
+                <include name="jre/lib/**/*.jar"/>
+                <include name="jre/lib/**/*.properties"/>
+                <include name="jre/lib/**/*.properties.*"/>
+                <include name="jre/lib/**/*.data"/>
+                <include name="jre/lib/**/*.bfc"/>
+                <include name="jre/lib/**/*.so"/>
+                <include name="jre/lib/**/*.cfg"/>
+            </zipfileset>
+            <zipfileset dir="${dist-tmp.linux.x64.dir}">
+                <include name="**"/>
+                <exclude name="apprun.sh"/>
+                <exclude name="jre/bin/*"/>
+                <exclude name="jre/lib/classlist"/>
+                <exclude name="jre/lib/jexec"/>
+                <exclude name="jre/lib/jvm.hprof.txt"/>
+                <exclude name="jre/lib/meta-index"/>
+                <exclude name="jre/lib/**/*.jar"/>
+                <exclude name="jre/lib/**/*.properties"/>
+                <exclude name="jre/lib/**/*.properties.*"/>
+                <exclude name="jre/lib/**/*.data"/>
+                <exclude name="jre/lib/**/*.bfc"/>
+                <exclude name="jre/lib/**/*.so"/>
+                <exclude name="jre/lib/**/*.cfg"/>
+            </zipfileset>
+        </zip>
+
+    </target>
+
+    <!--
+        清除 Mac 版 APP 安裝程式及目錄
+    -->
+    <target name="clean-mac-installer" description="清除 Mac 版 APP 安裝程式及目錄">
+        <echo>################################################################</echo>
+        <echo>## 清除 Mac 版 APP 安裝程式及目錄                                  </echo>
+        <echo>################################################################</echo>
+        <delete dir="${target.jre.mac.x64.dir}" quiet="true"/>
+        <delete dir="${dist-tmp.mac.x64.dir}" quiet="true"/>
+        <delete file="${dist.dir}/Filelug-${app.version}-mac.app.zip" quiet="true"/>
+    </target>
+
+    <!--
+        清除 Linux x64 版 無安裝程式壓縮包安裝目錄
+    -->
+    <target name="clean-linux-x64-installer" description="Linux x64 版 無安裝程式壓縮包安裝目錄">
+        <echo>################################################################</echo>
+        <echo>## Linux x64 版 無安裝程式壓縮包安裝目錄                            </echo>
+        <echo>################################################################</echo>
+        <delete dir="${target.jre.linux.x64.dir}" quiet="true"/>
+        <delete dir="${dist-tmp.linux.x64.dir}" quiet="true"/>
+        <delete file="${dist.dir}/Filelug-${app.version}-linux-x64.tar.gz" quiet="true"/>
+    </target>
+
+</project>

@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="fdesktop" basedir="." default="fdesktop.jar.obfuscate">
+
+    <!--每次執行 build 之前請先修改或確認 build.properties 的內容-->
+    <property file="build.properties"/>
+    <import file="installer-macAndLinux.xml"/>
+    <import file="installer-windows.xml"/>
+
+    <target name="replace.before.package">
+        <replace file="${classes.dir}/Version.properties" propertyfile="build.properties">
+            <replacefilter token="2.0.3" property="app.version"/>
+        </replace>
+    </target>
+
+    <!-- Run only if jre.files.exists is false -->
+    <target name="export-jre" unless="jre.files.exist">
+
+        <echo>#########################################################</echo>
+        <echo>## Clear directory jre and get all jre files           ##</echo>
+        <echo>#########################################################</echo>
+
+        <!-- delete .git if exists -->
+        <delete dir="${install.jre.dir}"/>
+        <mkdir dir="${install.jre.dir}"/>
+
+        <!--
+        ####### Usage 1: git clone #######
+
+        <git command = "clone">
+            <args>
+                <arg value = "git://github.com/280north/ojunit.git" />
+                <arg value = "ojunit" />
+            </args>
+        </git>
+
+
+        ####### Usage 2: git pull #######
+
+        <git command = "pull" dir = "repository_path" />
+        -->
+        <macrodef name = "git">
+            <attribute name = "command" />
+            <attribute name = "dir" default = "" />
+            <element name = "args" optional = "true" />
+            <sequential>
+                <echo message = "git @{command}" />
+                <exec executable = "git" dir = "@{dir}" failonerror="true">
+                    <arg value = "@{command}" />
+                    <args/>
+                </exec>
+            </sequential>
+        </macrodef>
+
+        <git command="clone">
+            <args>
+                <arg value="--branch"/>
+                <arg value="${git.clone.jre.branch.name}"/>
+                <arg value="--single-branch"/>
+                <arg value="${jre.remote.url}"/>
+                <arg value="${install.jre.dir}"/>
+            </args>
+        </git>
+
+        <delete dir="${install.jre.dir}/.git"/>
+    </target>
+
+    <!--
+        混淆 fdesktop JAR 檔
+    -->
+    <target name="fdesktop.jar.obfuscate" depends="clean-obfuscate" description="混淆 fdesktop JAR 檔">
+
+        <echo>################################################################</echo>
+        <echo>## obfuscate fdesktop.jar                                     ##</echo>
+        <echo>################################################################</echo>
+
+        <mkdir dir="${fdesktop.obfuscate.dir}"/>
+
+        <java jar="${fdesktop.obfuscator.zkm.jar}" fork="true" failonerror="yes">
+            <arg line="-dd ${install.zkm.dir} ${fdesktop.obfuscate.script}"/>
+        </java>
+
+        <copy file="${fdesktop.obfuscate.jar}" todir="${target.flib.dir}"/>
+        <copy todir="${dist.dir}">
+            <fileset dir="${install.zkm.dir}">
+                <include name="apprun.*"/>
+            </fileset>
+        </copy>
+        <!--<chmod dir="${dist.dir}" perm="744" includes="apprun.*"/>-->
+    </target>
+
+    <!--
+        清除混淆檔案及目錄
+    -->
+    <target name="clean-obfuscate" description="清除混淆檔案及目錄">
+        <echo>################################################################</echo>
+        <echo>## clear obfuscated directory                                 ##</echo>
+        <echo>################################################################</echo>
+        <delete dir="${fdesktop.obfuscate.dir}"/>
+    </target>
+
+    <path id="classpath">
+        <fileset dir="${target.flib.dir}">
+            <include name="**/*.jar" />
+        </fileset>
+    </path>
+
+    <!--
+        執行應用程式 - 正式環境 - 繁體中文
+        必須在 mvn package 與 ant fdesktop.jar.obfuscate 之後才執行
+    -->
+    <target name="run-production-zh_TW" description="執行應用程式 - 正式環境 - 繁體中文">
+        <echo>################################################################</echo>
+        <echo>## run application (production, zh_TW)                        ##</echo>
+        <echo>################################################################</echo>
+
+        <java classname="com.filelug.desktop.Application"
+              fork="true"
+              failonerror="true"
+              maxmemory="512m">
+            <jvmarg value="-Duser.language=zh"/>
+            <jvmarg value="-Duser.region=TW"/>
+            <jvmarg value="-Dapple.awt.application.name=Filelug"/>
+            <jvmarg value="-Dapple.laf.useScreenMenuBar=true"/>
+            <jvmarg value="-Dcom.apple.mrj.application.apple.menu.about.name=Filelug"/>
+            <classpath refid="classpath"/>
+        </java>
+    </target>
+
+    <!--
+        執行應用程式 - 正式環境 - 簡體中文
+        必須在 mvn package 與 ant fdesktop.jar.obfuscate 之後才執行
+    -->
+    <target name="run-production-zh_CN" description="執行應用程式 - 正式環境 - 簡體中文">
+        <echo>################################################################</echo>
+        <echo>## run application (production, zh_CN)                        ##</echo>
+        <echo>################################################################</echo>
+
+        <java classname="com.filelug.desktop.Application"
+              fork="true"
+              failonerror="true"
+              maxmemory="512m">
+            <jvmarg value="-Duser.language=zh"/>
+            <jvmarg value="-Duser.region=CN"/>
+            <jvmarg value="-Dapple.awt.application.name=Filelug"/>
+            <jvmarg value="-Dapple.laf.useScreenMenuBar=true"/>
+            <jvmarg value="-Dcom.apple.mrj.application.apple.menu.about.name=Filelug"/>
+            <classpath refid="classpath"/>
+        </java>
+    </target>
+
+    <!--
+        執行應用程式 - 正式環境 - 英文
+        必須在 mvn package 與 ant fdesktop.jar.obfuscate 之後才執行
+    -->
+    <target name="run-production-en" description="執行應用程式 - 正式環境 - 英文">
+        <echo>################################################################</echo>
+        <echo>## run application (production, en)                           ##</echo>
+        <echo>################################################################</echo>
+
+        <java classname="com.filelug.desktop.Application"
+              fork="true"
+              failonerror="true"
+              maxmemory="512m">
+            <jvmarg value="-Duser.language=en"/>
+            <jvmarg value="-Dapple.awt.application.name=Filelug"/>
+            <jvmarg value="-Dapple.laf.useScreenMenuBar=true"/>
+            <jvmarg value="-Dcom.apple.mrj.application.apple.menu.about.name=Filelug"/>
+            <classpath refid="classpath"/>
+        </java>
+    </target>
+
+    <!--
+        執行應用程式 - 測試環境 - 繁體中文
+        必須在 mvn package 與 ant fdesktop.jar.obfuscate 之後才執行
+    -->
+    <target name="run-testing-zh_TW" description="執行應用程式 - 測試環境 - 繁體中文">
+        <echo>################################################################</echo>
+        <echo>## run application (testing, zh_TW)                           ##</echo>
+        <echo>################################################################</echo>
+
+        <java classname="com.filelug.desktop.Application"
+              fork="true"
+              failonerror="true"
+              maxmemory="512m">
+            <jvmarg value="-Duse.https=false"/>
+            <jvmarg value="-Duser.language=zh"/>
+            <jvmarg value="-Duser.region=TW"/>
+            <jvmarg value="-Dapple.awt.application.name=Filelug"/>
+            <jvmarg value="-Dapple.laf.useScreenMenuBar=true"/>
+            <jvmarg value="-Dcom.apple.mrj.application.apple.menu.about.name=Filelug"/>
+            <classpath refid="classpath"/>
+        </java>
+    </target>
+
+    <!--
+        執行應用程式 - 測試環境 - 簡體中文
+        必須在 mvn package 與 ant fdesktop.jar.obfuscate 之後才執行
+    -->
+    <target name="run-testing-zh_CN" description="執行應用程式 - 測試環境 - 簡體中文">
+        <echo>################################################################</echo>
+        <echo>## run application (testing, zh_CN)                           ##</echo>
+        <echo>################################################################</echo>
+
+        <java classname="com.filelug.desktop.Application"
+              fork="true"
+              failonerror="true"
+              maxmemory="512m">
+            <jvmarg value="-Duse.https=false"/>
+            <jvmarg value="-Duser.language=zh"/>
+            <jvmarg value="-Duser.region=CN"/>
+            <jvmarg value="-Dapple.awt.application.name=Filelug"/>
+            <jvmarg value="-Dapple.laf.useScreenMenuBar=true"/>
+            <jvmarg value="-Dcom.apple.mrj.application.apple.menu.about.name=Filelug"/>
+            <classpath refid="classpath"/>
+        </java>
+    </target>
+
+    <!--
+        執行應用程式 - 測試環境 - 英文
+        必須在 mvn package 與 ant fdesktop.jar.obfuscate 之後才執行
+    -->
+    <target name="run-testing-en" description="執行應用程式 - 測試環境 - 英文">
+        <echo>################################################################</echo>
+        <echo>## run application (testing, en)                              ##</echo>
+        <echo>################################################################</echo>
+
+        <java classname="com.filelug.desktop.Application"
+              fork="true"
+              failonerror="true"
+              maxmemory="512m">
+            <jvmarg value="-Duse.https=false"/>
+            <jvmarg value="-Duser.language=en"/>
+            <jvmarg value="-Dapple.awt.application.name=Filelug"/>
+            <jvmarg value="-Dapple.laf.useScreenMenuBar=true"/>
+            <jvmarg value="-Dcom.apple.mrj.application.apple.menu.about.name=Filelug"/>
+            <classpath refid="classpath"/>
+        </java>
+    </target>
+
+
+
+</project>
